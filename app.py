@@ -2,12 +2,51 @@ import datetime
 
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 import gspread
 from gspread.exceptions import APIError
 
 st.set_page_config(page_title="我的记账本", page_icon="💰", layout="centered")
 
-st.markdown("""
+# ── 密码保护 ──────────────────────────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔐 我的记账本")
+    device = st.radio("选择设备", ["📱 手机", "🖥️ PC"], horizontal=True)
+    st.session_state["device"] = "pc" if "PC" in device else "mobile"
+    password = st.text_input("密码", type="password")
+    if st.button("登录"):
+        if password == st.secrets["APP_PASSWORD"]:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("密码错误")
+    st.stop()
+
+# ── 设备适配样式 ──────────────────────────────────────────
+if st.session_state.get("device") == "pc":
+    st.markdown("""
+<style>
+    header[data-testid="stHeader"] { display: none; }
+    html { font-size: 16px; }
+    .block-container { padding: 1rem 1.5rem 2rem 1.5rem; max-width: 800px; }
+    [data-testid="stMetric"] { background: none !important; padding: 8px 4px !important; }
+    [data-testid="stMetricLabel"] { font-size: 0.8rem !important; }
+    [data-testid="stMetricValue"] { font-size: 1.4rem !important; font-weight: 600 !important; }
+    h2 { font-size: 1rem !important; margin: 0 0 0.35rem 0 !important; font-weight: 600 !important; }
+    hr { margin: 0.5rem 0 !important; opacity: 0.12; }
+    .stButton > button { border-radius: 10px !important; font-weight: 500 !important; font-size: 1rem !important; }
+    [data-testid="stForm"] { border: none !important; padding: 0 !important; }
+    [data-testid="stSidebar"] { min-width: 240px !important; max-width: 280px !important; }
+    [data-testid="stSidebar"] .block-container { padding: 0.75rem 0.75rem; }
+    .stRadio [role="radiogroup"] { gap: 6px; }
+    .stRadio label { font-size: 0.9rem !important; }
+</style>
+""", unsafe_allow_html=True)
+else:
+    st.markdown("""
 <style>
     header[data-testid="stHeader"] { display: none; }
     html { font-size: 14px; }
@@ -25,21 +64,6 @@ st.markdown("""
     .stRadio label { font-size: 0.85rem !important; }
 </style>
 """, unsafe_allow_html=True)
-
-# ── 密码保护 ──────────────────────────────────────────────
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    st.title("🔐 请输入密码")
-    password = st.text_input("密码", type="password")
-    if st.button("登录"):
-        if password == st.secrets["APP_PASSWORD"]:
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("密码错误")
-    st.stop()
 
 EXPECTED_HEADERS = ["timestamp", "date", "type", "category", "amount", "payment_method", "note"]
 
@@ -281,6 +305,10 @@ with st.expander("📈 分类统计"):
         expense_by_cat = regular_df[regular_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
         if not expense_by_cat.empty:
             st.bar_chart(expense_by_cat)
+            fig, ax = plt.subplots()
+            ax.pie(expense_by_cat.values, labels=expense_by_cat.index, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+            ax.axis('equal')
+            st.pyplot(fig)
         else:
             st.caption("当前周期暂无支出记录")
     else:
@@ -289,20 +317,31 @@ with st.expander("📈 分类统计"):
 # ── 删除记录 ──
 with st.expander("🗑️ 删除记录"):
     if not df.empty:
-        del_candidates = df.sort_values("date", ascending=False).head(50)
-        del_labels = del_candidates.apply(
-            lambda r: f"行{int(r['_row'])} - {r['date'].strftime('%Y-%m-%d')} - {'收入' if r['type']=='income' else '支出'} - {r['category']} - ¥{r['amount']:,.2f}",
-            axis=1,
-        ).tolist()
-        del_selected = st.selectbox("选择要删除的记录", del_labels, key="del_select")
-        if st.button("删除选中记录", type="primary", key="del_btn"):
-            row_num = int(del_selected.split(" - ")[0].replace("行", ""))
-            try:
-                ws.delete_rows(row_num)
-                st.cache_data.clear()
-                st.success("已删除")
-                st.rerun()
-            except APIError as e:
-                st.error(f"删除失败：{e}")
+        filter_text = st.text_input("搜索过滤", placeholder="输入关键词筛选记录...")
+        del_candidates = df.sort_values("date", ascending=False).head(100)
+        if filter_text:
+            mask = del_candidates.apply(
+                lambda r: filter_text.lower() in f"{r['date'].strftime('%Y-%m-%d')} {'收入' if r['type']=='income' else '支出'} {r['category']} {r['payment_method']} {r['note']}".lower(),
+                axis=1,
+            )
+            del_candidates = del_candidates[mask]
+        if not del_candidates.empty:
+            del_labels = del_candidates.apply(
+                lambda r: f"行{int(r['_row'])} | {r['date'].strftime('%Y-%m-%d')} | {'收入' if r['type']=='income' else '支出'} | {r['category']} | ¥{r['amount']:,.2f}",
+                axis=1,
+            ).tolist()
+            selected = st.multiselect("选择要删除的记录", del_labels)
+            if selected and st.button("删除选中记录", type="primary"):
+                row_nums = sorted([int(s.split(" | ")[0].replace("行", "")) for s in selected], reverse=True)
+                try:
+                    for row_num in row_nums:
+                        ws.delete_rows(row_num)
+                    st.cache_data.clear()
+                    st.success(f"已删除 {len(selected)} 条记录")
+                    st.rerun()
+                except APIError as e:
+                    st.error(f"删除失败：{e}")
+        else:
+            st.caption("无匹配记录")
     else:
         st.caption("暂无记录可删除")
