@@ -120,15 +120,24 @@ range_display_end = range_end - datetime.timedelta(days=1)
 st.sidebar.info(f"**当前统计范围**\n\n{range_start} 至 {range_display_end}")
 
 # ── 筛选当前周期数据 ───────────────────────────────────────
+EXPENSE_CATEGORIES = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他", "小金库支出"]
+INCOME_CATEGORIES = ["奖学金", "生活费", "兼职", "工资", "红包", "投资", "其他收入", "小金库存入"]
+FUND_CATEGORIES = ["小金库存入", "小金库支出"]
+
 if not df.empty:
     mask = (df["date"] >= pd.Timestamp(range_start)) & (df["date"] < pd.Timestamp(range_end))
     period_df = df[mask]
 else:
     period_df = df
 
-period_income = period_df[period_df["type"] == "income"]["amount"].sum()
-period_expense = period_df[period_df["type"] == "expense"]["amount"].sum()
+regular_df = period_df[~period_df["category"].isin(FUND_CATEGORIES)]
+period_income = regular_df[regular_df["type"] == "income"]["amount"].sum()
+period_expense = regular_df[regular_df["type"] == "expense"]["amount"].sum()
 period_balance = period_income - period_expense
+
+period_fund_in = period_df[(period_df["type"] == "income") & (period_df["category"] == "小金库存入")]["amount"].sum()
+period_fund_out = period_df[(period_df["type"] == "expense") & (period_df["category"] == "小金库支出")]["amount"].sum()
+total_fund = df[(df["type"] == "income") & (df["category"] == "小金库存入")]["amount"].sum() - df[(df["type"] == "expense") & (df["category"] == "小金库支出")]["amount"].sum()
 
 # ── 主页面 ─────────────────────────────────────────────────
 st.title("💰 我的记账本")
@@ -140,12 +149,17 @@ col1.metric("收入", f"¥{period_income:,.2f}")
 col2.metric("支出", f"¥{period_expense:,.2f}")
 col3.metric("结余", f"¥{period_balance:,.2f}")
 
+# ── 小金库 ─────────────────────────────────────────────────
+st.subheader("🏦 小金库")
+col_f1, col_f2, col_f3 = st.columns(3)
+col_f1.metric("总余额", f"¥{total_fund:,.2f}")
+col_f2.metric("本期存入", f"¥{period_fund_in:,.2f}")
+col_f3.metric("本期支出", f"¥{period_fund_out:,.2f}")
+
 st.divider()
 
 # ── 新增记录 ───────────────────────────────────────────────
 st.subheader("✏️ 新增记录")
-EXPENSE_CATEGORIES = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他"]
-INCOME_CATEGORIES = ["奖学金", "生活费", "兼职", "工资", "红包", "投资", "其他收入"]
 
 if "record_type" not in st.session_state:
     st.session_state["record_type"] = "expense"
@@ -191,8 +205,8 @@ st.divider()
 
 # ── 分类支出统计 ───────────────────────────────────────────
 st.subheader("📈 分类支出统计")
-if not period_df.empty:
-    expense_by_cat = period_df[period_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
+if not regular_df.empty:
+    expense_by_cat = regular_df[regular_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
     if not expense_by_cat.empty:
         st.bar_chart(expense_by_cat)
     else:
