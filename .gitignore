@@ -2,5 +2,6 @@ __pycache__/
 *.py[cod]
 .env
 .streamlit/secrets.toml
+.venv/
 *.service_account.json
 .DS_Store
