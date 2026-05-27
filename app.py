@@ -7,27 +7,16 @@ from gspread.exceptions import APIError
 
 st.set_page_config(page_title="我的记账本", page_icon="💰", layout="centered")
 
-# ── 全局样式 ──────────────────────────────────────────────
 st.markdown("""
 <style>
     header[data-testid="stHeader"] { display: none; }
     html { font-size: 14px; }
     .block-container { padding: 0.5rem 0.75rem 1rem 0.75rem; max-width: 640px; }
-    .card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 12px 14px;
-        margin: 6px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
-        border: 1px solid rgba(0,0,0,0.05);
-    }
-    [data-testid="stMetric"] { background: none !important; border-radius: 0 !important; padding: 4px 0 !important; }
+    [data-testid="stMetric"] { background: none !important; padding: 4px 0 !important; }
     [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
-    [data-testid="stMetricValue"] { font-size: 1.2rem !important; font-weight: 600 !important; }
-    h1 { font-size: 1.2rem !important; padding: 0 !important; margin: 0 0 0.4rem 0 !important; }
+    [data-testid="stMetricValue"] { font-size: 1.1rem !important; font-weight: 600 !important; }
     h2 { font-size: 0.9rem !important; margin: 0 0 0.25rem 0 !important; font-weight: 600 !important; }
-    h3 { font-size: 0.85rem !important; margin: 0 0 0.25rem 0 !important; }
-    hr { margin: 0.3rem 0 !important; border-color: rgba(0,0,0,0.06) !important; }
+    hr { margin: 0.4rem 0 !important; opacity: 0.12; }
     .stButton > button { border-radius: 10px !important; font-weight: 500 !important; font-size: 0.9rem !important; }
     [data-testid="stForm"] { border: none !important; padding: 0 !important; }
     [data-testid="stSidebar"] { min-width: 200px !important; max-width: 240px !important; }
@@ -149,6 +138,10 @@ range_display_end = range_end - datetime.timedelta(days=1)
 
 st.sidebar.info(f"**当前统计范围**\n\n{range_start} 至 {range_display_end}")
 
+st.sidebar.divider()
+st.sidebar.metric("🏦 小金库余额", f"¥{total_fund:,.2f}")
+st.sidebar.caption(f"本期存入 ¥{period_fund_in:,.2f} ｜ 本期支出 ¥{period_fund_out:,.2f}")
+
 # ── 筛选当前周期数据 ───────────────────────────────────────
 EXPENSE_CATEGORIES = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他", "小金库支出"]
 INCOME_CATEGORIES = ["奖学金", "生活费", "兼职", "工资", "红包", "投资", "其他收入", "小金库存入"]
@@ -168,86 +161,22 @@ period_balance = period_income - period_expense
 period_fund_in = period_df[(period_df["type"] == "income") & (period_df["category"] == "小金库存入")]["amount"].sum()
 period_fund_out = period_df[(period_df["type"] == "expense") & (period_df["category"] == "小金库支出")]["amount"].sum()
 total_fund = df[(df["type"] == "income") & (df["category"] == "小金库存入")]["amount"].sum() - df[(df["type"] == "expense") & (df["category"] == "小金库支出")]["amount"].sum()
+all_regular = df[~df["category"].isin(FUND_CATEGORIES)] if not df.empty else df
+total_balance_all = all_regular[all_regular["type"] == "income"]["amount"].sum() - all_regular[all_regular["type"] == "expense"]["amount"].sum()
 
 # ── 主页面 ─────────────────────────────────────────────────
-st.title("💰 我的记账本")
+# 当前总余额
+st.markdown(f"<h1 style='text-align:center;font-size:2.2rem;margin:0.25rem 0 0 0;font-weight:700;'>¥{total_balance_all:,.2f}</h1>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center;color:#8e8e93;margin:0 0 0.5rem 0;font-size:0.8rem;'>当前总余额</p>", unsafe_allow_html=True)
 
-st.markdown('<div class="card">', unsafe_allow_html=True)
-# ── 统计概览 ──
-st.subheader(f"📊 {billing_month} 记账月")
+# 本月概览
 col1, col2, col3 = st.columns(3)
-col1.metric("收入", f"¥{period_income:,.2f}")
-col2.metric("支出", f"¥{period_expense:,.2f}")
-col3.metric("结余", f"¥{period_balance:,.2f}")
+col1.metric("本月收入", f"¥{period_income:,.2f}")
+col2.metric("本月支出", f"¥{period_expense:,.2f}")
+col3.metric("本月结余", f"¥{period_balance:,.2f}")
 
-st.markdown("---")
-# ── 小金库 ──
-st.subheader("🏦 小金库")
-col_f1, col_f2, col_f3 = st.columns(3)
-col_f1.metric("总余额", f"¥{total_fund:,.2f}")
-col_f2.metric("本期存入", f"¥{period_fund_in:,.2f}")
-col_f3.metric("本期支出", f"¥{period_fund_out:,.2f}")
-st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
-st.markdown('<div class="card">', unsafe_allow_html=True)
-# ── 新增记录 ──
-st.subheader("✏️ 新增记录")
-
-if "record_type" not in st.session_state:
-    st.session_state["record_type"] = "expense"
-
-record_type = st.selectbox(
-    "类型", ["expense", "income"],
-    format_func=lambda x: "支出" if x == "expense" else "收入",
-    key="record_type",
-)
-categories = EXPENSE_CATEGORIES if record_type == "expense" else INCOME_CATEGORIES
-
-with st.form("new_record", clear_on_submit=True):
-    c1, c2 = st.columns(2)
-    record_date = c1.date_input("日期", value=today)
-    record_category = c2.selectbox("分类", categories)
-
-    c3, c4 = st.columns(2)
-    record_amount = c3.number_input("金额", min_value=0.01, step=0.01, format="%.2f")
-    payment_methods = ["微信", "支付宝", "现金", "银行卡"]
-    record_payment = c4.selectbox("支付方式", payment_methods)
-    record_note = st.text_input("备注", placeholder="选填")
-
-    submitted = st.form_submit_button("保存记录", use_container_width=True)
-    if submitted:
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            ws.append_row([
-                timestamp,
-                record_date.strftime("%Y-%m-%d"),
-                record_type,
-                record_category,
-                record_amount,
-                record_payment,
-                record_note,
-            ])
-            st.cache_data.clear()
-            st.success("记录已保存！")
-            st.rerun()
-        except APIError as e:
-            st.error(f"保存失败：{e}")
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="card">', unsafe_allow_html=True)
-# ── 分类支出统计 ──
-st.subheader("📈 分类支出统计")
-if not regular_df.empty:
-    expense_by_cat = regular_df[regular_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
-    if not expense_by_cat.empty:
-        st.bar_chart(expense_by_cat)
-    else:
-        st.caption("当前周期暂无支出记录")
-else:
-    st.caption("暂无数据")
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="card">', unsafe_allow_html=True)
 # ── 最近记录 ──
 st.subheader("📋 最近记录")
 show_mode = st.radio("显示范围", ["全部最近记录", "当前记账周期内的记录"], horizontal=True, label_visibility="collapsed")
@@ -277,27 +206,83 @@ if not display_df.empty:
     )
 else:
     st.caption("暂无记录")
-st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── ＋ 记一笔 ──
+if "show_form" not in st.session_state:
+    st.session_state["show_form"] = False
+
+_, btn_col, _ = st.columns([1, 2, 1])
+if btn_col.button("＋ 记一笔", use_container_width=True, type="primary"):
+    st.session_state["show_form"] = not st.session_state["show_form"]
+
+if st.session_state["show_form"]:
+    st.divider()
+    st.subheader("✏️ 新增记录")
+    if "record_type" not in st.session_state:
+        st.session_state["record_type"] = "expense"
+    record_type = st.selectbox(
+        "类型", ["expense", "income"],
+        format_func=lambda x: "支出" if x == "expense" else "收入",
+        key="record_type",
+    )
+    categories = EXPENSE_CATEGORIES if record_type == "expense" else INCOME_CATEGORIES
+    with st.form("new_record", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        record_date = c1.date_input("日期", value=today)
+        record_category = c2.selectbox("分类", categories)
+        c3, c4 = st.columns(2)
+        record_amount = c3.number_input("金额", min_value=0.01, step=0.01, format="%.2f")
+        payment_methods = ["微信", "支付宝", "现金", "银行卡"]
+        record_payment = c4.selectbox("支付方式", payment_methods)
+        record_note = st.text_input("备注", placeholder="选填")
+        submitted = st.form_submit_button("保存记录", use_container_width=True)
+        if submitted:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            try:
+                ws.append_row([
+                    timestamp,
+                    record_date.strftime("%Y-%m-%d"),
+                    record_type,
+                    record_category,
+                    record_amount,
+                    record_payment,
+                    record_note,
+                ])
+                st.cache_data.clear()
+                st.session_state["show_form"] = False
+                st.success("记录已保存！")
+                st.rerun()
+            except APIError as e:
+                st.error(f"保存失败：{e}")
+
+# ── 分类统计 ──
+with st.expander("📈 分类统计"):
+    if not regular_df.empty:
+        expense_by_cat = regular_df[regular_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
+        if not expense_by_cat.empty:
+            st.bar_chart(expense_by_cat)
+        else:
+            st.caption("当前周期暂无支出记录")
+    else:
+        st.caption("暂无数据")
+
 # ── 删除记录 ──
-st.subheader("🗑️ 删除记录")
-if not df.empty:
-    del_candidates = df.sort_values("date", ascending=False).head(50)
-    del_labels = del_candidates.apply(
-        lambda r: f"行{int(r['_row'])} - {r['date'].strftime('%Y-%m-%d')} - {'收入' if r['type']=='income' else '支出'} - {r['category']} - ¥{r['amount']:,.2f}",
-        axis=1,
-    ).tolist()
-    del_selected = st.selectbox("选择要删除的记录", del_labels, key="del_select")
-    if st.button("删除选中记录", type="primary", key="del_btn"):
-        row_num = int(del_selected.split(" - ")[0].replace("行", ""))
-        try:
-            ws.delete_rows(row_num)
-            st.cache_data.clear()
-            st.success("已删除")
-            st.rerun()
-        except APIError as e:
-            st.error(f"删除失败：{e}")
-else:
-    st.caption("暂无记录可删除")
-st.markdown('</div>', unsafe_allow_html=True)
+with st.expander("🗑️ 删除记录"):
+    if not df.empty:
+        del_candidates = df.sort_values("date", ascending=False).head(50)
+        del_labels = del_candidates.apply(
+            lambda r: f"行{int(r['_row'])} - {r['date'].strftime('%Y-%m-%d')} - {'收入' if r['type']=='income' else '支出'} - {r['category']} - ¥{r['amount']:,.2f}",
+            axis=1,
+        ).tolist()
+        del_selected = st.selectbox("选择要删除的记录", del_labels, key="del_select")
+        if st.button("删除选中记录", type="primary", key="del_btn"):
+            row_num = int(del_selected.split(" - ")[0].replace("行", ""))
+            try:
+                ws.delete_rows(row_num)
+                st.cache_data.clear()
+                st.success("已删除")
+                st.rerun()
+            except APIError as e:
+                st.error(f"删除失败：{e}")
+    else:
+        st.caption("暂无记录可删除")
