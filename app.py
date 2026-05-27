@@ -7,6 +7,37 @@ from gspread.exceptions import APIError
 
 st.set_page_config(page_title="我的记账本", page_icon="💰", layout="centered")
 
+# ── 全局样式 ──────────────────────────────────────────────
+st.markdown("""
+<style>
+    html { font-size: 14px; }
+    .block-container { padding: 0.75rem 0.75rem; max-width: 600px; }
+    .card {
+        background: rgba(128,128,128,0.06);
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin: 6px 0;
+        border: 1px solid rgba(128,128,128,0.08);
+    }
+    [data-testid="stMetric"] {
+        background: rgba(128,128,128,0.04);
+        border-radius: 12px;
+        padding: 6px 4px !important;
+    }
+    [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
+    [data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 600 !important; }
+    h1 { font-size: 1.3rem !important; padding: 0 !important; }
+    h2 { font-size: 1rem !important; margin: 0 0 0.3rem 0 !important; font-weight: 600 !important; }
+    h3 { font-size: 0.95rem !important; margin: 0 0 0.3rem 0 !important; }
+    hr { margin: 0.4rem 0 !important; opacity: 0.15; }
+    .stButton > button { border-radius: 12px !important; font-weight: 500 !important; }
+    [data-testid="stForm"] { border: none !important; padding: 0 !important; }
+    [data-testid="stSidebar"] .block-container { padding: 0.75rem 0.75rem; }
+    .stRadio [role="radiogroup"] { gap: 4px; }
+    [data-testid="stCaptionContainer"] { margin-bottom: 0.3rem; }
+</style>
+""", unsafe_allow_html=True)
+
 # ── 密码保护 ──────────────────────────────────────────────
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -142,23 +173,25 @@ total_fund = df[(df["type"] == "income") & (df["category"] == "小金库存入")
 # ── 主页面 ─────────────────────────────────────────────────
 st.title("💰 我的记账本")
 
-# ── 统计概览 ───────────────────────────────────────────────
-st.subheader(f"📊 {billing_month} 记账月概览")
+st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── 统计概览 ──
+st.subheader(f"📊 {billing_month} 记账月")
 col1, col2, col3 = st.columns(3)
 col1.metric("收入", f"¥{period_income:,.2f}")
 col2.metric("支出", f"¥{period_expense:,.2f}")
 col3.metric("结余", f"¥{period_balance:,.2f}")
 
-# ── 小金库 ─────────────────────────────────────────────────
+st.markdown("---")
+# ── 小金库 ──
 st.subheader("🏦 小金库")
 col_f1, col_f2, col_f3 = st.columns(3)
 col_f1.metric("总余额", f"¥{total_fund:,.2f}")
 col_f2.metric("本期存入", f"¥{period_fund_in:,.2f}")
 col_f3.metric("本期支出", f"¥{period_fund_out:,.2f}")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
-
-# ── 新增记录 ───────────────────────────────────────────────
+st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── 新增记录 ──
 st.subheader("✏️ 新增记录")
 
 if "record_type" not in st.session_state:
@@ -200,10 +233,10 @@ with st.form("new_record", clear_on_submit=True):
             st.rerun()
         except APIError as e:
             st.error(f"保存失败：{e}")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
-
-# ── 分类支出统计 ───────────────────────────────────────────
+st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── 分类支出统计 ──
 st.subheader("📈 分类支出统计")
 if not regular_df.empty:
     expense_by_cat = regular_df[regular_df["type"] == "expense"].groupby("category")["amount"].sum().sort_values(ascending=True)
@@ -213,10 +246,10 @@ if not regular_df.empty:
         st.caption("当前周期暂无支出记录")
 else:
     st.caption("暂无数据")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
-
-# ── 最近记录 ───────────────────────────────────────────────
+st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── 最近记录 ──
 st.subheader("📋 最近记录")
 show_mode = st.radio("显示范围", ["全部最近记录", "当前记账周期内的记录"], horizontal=True, label_visibility="collapsed")
 
@@ -245,10 +278,10 @@ if not display_df.empty:
     )
 else:
     st.caption("暂无记录")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
-
-# ── 删除记录 ───────────────────────────────────────────────
+st.markdown('<div class="card">', unsafe_allow_html=True)
+# ── 删除记录 ──
 st.subheader("🗑️ 删除记录")
 if not df.empty:
     del_candidates = df.sort_values("date", ascending=False).head(50)
@@ -268,3 +301,4 @@ if not df.empty:
             st.error(f"删除失败：{e}")
 else:
     st.caption("暂无记录可删除")
+st.markdown('</div>', unsafe_allow_html=True)
