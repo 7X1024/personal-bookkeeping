@@ -29,7 +29,7 @@ if not st.session_state["authenticated"]:
 if st.session_state.get("device") == "pc":
     st.markdown("""
 <style>
-    header[data-testid="stHeader"] { display: none; }
+    @media (min-width: 576px) { header[data-testid="stHeader"] { display: none; } }
     html { font-size: 16px; }
     .block-container { padding: 1rem 1.5rem 2rem 1.5rem; max-width: 800px; }
     [data-testid="stMetric"] { background: none !important; padding: 8px 4px !important; }
@@ -48,7 +48,7 @@ if st.session_state.get("device") == "pc":
 else:
     st.markdown("""
 <style>
-    header[data-testid="stHeader"] { display: none; }
+    @media (min-width: 576px) { header[data-testid="stHeader"] { display: none; } }
     html { font-size: 14px; }
     .block-container { padding: 0.5rem 0.75rem 1rem 0.75rem; max-width: 640px; }
     [data-testid="stMetric"] { background: none !important; padding: 4px 0 !important; }
