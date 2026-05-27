@@ -10,31 +10,30 @@ st.set_page_config(page_title="我的记账本", page_icon="💰", layout="cente
 # ── 全局样式 ──────────────────────────────────────────────
 st.markdown("""
 <style>
+    header[data-testid="stHeader"] { display: none; }
     html { font-size: 14px; }
-    .block-container { padding: 0.75rem 0.75rem; max-width: 600px; }
+    .block-container { padding: 0.5rem 0.75rem 1rem 0.75rem; max-width: 640px; }
     .card {
-        background: rgba(128,128,128,0.06);
-        border-radius: 16px;
-        padding: 14px 16px;
-        margin: 6px 0;
-        border: 1px solid rgba(128,128,128,0.08);
-    }
-    [data-testid="stMetric"] {
-        background: rgba(128,128,128,0.04);
+        background: #ffffff;
         border-radius: 12px;
-        padding: 6px 4px !important;
+        padding: 12px 14px;
+        margin: 6px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        border: 1px solid rgba(0,0,0,0.05);
     }
+    [data-testid="stMetric"] { background: none !important; border-radius: 0 !important; padding: 4px 0 !important; }
     [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
-    [data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 600 !important; }
-    h1 { font-size: 1.3rem !important; padding: 0 !important; }
-    h2 { font-size: 1rem !important; margin: 0 0 0.3rem 0 !important; font-weight: 600 !important; }
-    h3 { font-size: 0.95rem !important; margin: 0 0 0.3rem 0 !important; }
-    hr { margin: 0.4rem 0 !important; opacity: 0.15; }
-    .stButton > button { border-radius: 12px !important; font-weight: 500 !important; }
+    [data-testid="stMetricValue"] { font-size: 1.2rem !important; font-weight: 600 !important; }
+    h1 { font-size: 1.2rem !important; padding: 0 !important; margin: 0 0 0.4rem 0 !important; }
+    h2 { font-size: 0.9rem !important; margin: 0 0 0.25rem 0 !important; font-weight: 600 !important; }
+    h3 { font-size: 0.85rem !important; margin: 0 0 0.25rem 0 !important; }
+    hr { margin: 0.3rem 0 !important; border-color: rgba(0,0,0,0.06) !important; }
+    .stButton > button { border-radius: 10px !important; font-weight: 500 !important; font-size: 0.9rem !important; }
     [data-testid="stForm"] { border: none !important; padding: 0 !important; }
-    [data-testid="stSidebar"] .block-container { padding: 0.75rem 0.75rem; }
+    [data-testid="stSidebar"] { min-width: 200px !important; max-width: 240px !important; }
+    [data-testid="stSidebar"] .block-container { padding: 0.5rem 0.5rem; }
     .stRadio [role="radiogroup"] { gap: 4px; }
-    [data-testid="stCaptionContainer"] { margin-bottom: 0.3rem; }
+    .stRadio label { font-size: 0.85rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
