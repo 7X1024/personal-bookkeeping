@@ -74,10 +74,11 @@ def save_setting(key, value):
 # ── 读取全部数据 ───────────────────────────────────────────
 @st.cache_data(ttl=10)
 def load_data():
-    records = ws.get_all_records()
-    if not records:
-        return pd.DataFrame(columns=["timestamp", "date", "type", "category", "amount", "payment_method", "note"])
-    df = pd.DataFrame(records)
+    all_values = ws.get_all_values()
+    if len(all_values) < 2:
+        return pd.DataFrame(columns=["timestamp", "date", "type", "category", "amount", "payment_method", "note", "_row"])
+    df = pd.DataFrame(all_values[1:], columns=all_values[0])
+    df["_row"] = range(2, len(all_values) + 1)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
     return df
@@ -143,20 +144,29 @@ st.divider()
 
 # ── 新增记录 ───────────────────────────────────────────────
 st.subheader("✏️ 新增记录")
+EXPENSE_CATEGORIES = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他"]
+INCOME_CATEGORIES = ["奖学金", "生活费", "兼职", "工资", "红包", "投资", "其他收入"]
+
+if "record_type" not in st.session_state:
+    st.session_state["record_type"] = "expense"
+
+record_type = st.selectbox(
+    "类型", ["expense", "income"],
+    format_func=lambda x: "支出" if x == "expense" else "收入",
+    key="record_type",
+)
+categories = EXPENSE_CATEGORIES if record_type == "expense" else INCOME_CATEGORIES
+
 with st.form("new_record", clear_on_submit=True):
     c1, c2 = st.columns(2)
-    record_type = c1.selectbox("类型", ["expense", "income"], format_func=lambda x: "支出" if x == "expense" else "收入")
-    record_date = c2.date_input("日期", value=today)
+    record_date = c1.date_input("日期", value=today)
+    record_category = c2.selectbox("分类", categories)
 
-    categories = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他"]
     c3, c4 = st.columns(2)
-    record_category = c3.selectbox("分类", categories)
-    record_amount = c4.number_input("金额", min_value=0.01, step=0.01, format="%.2f")
-
+    record_amount = c3.number_input("金额", min_value=0.01, step=0.01, format="%.2f")
     payment_methods = ["微信", "支付宝", "现金", "银行卡"]
-    c5, c6 = st.columns(2)
-    record_payment = c5.selectbox("支付方式", payment_methods)
-    record_note = c6.text_input("备注", placeholder="选填")
+    record_payment = c4.selectbox("支付方式", payment_methods)
+    record_note = st.text_input("备注", placeholder="选填")
 
     submitted = st.form_submit_button("保存记录", use_container_width=True)
     if submitted:
@@ -221,3 +231,26 @@ if not display_df.empty:
     )
 else:
     st.caption("暂无记录")
+
+st.divider()
+
+# ── 删除记录 ───────────────────────────────────────────────
+st.subheader("🗑️ 删除记录")
+if not df.empty:
+    del_candidates = df.sort_values("date", ascending=False).head(50)
+    del_labels = del_candidates.apply(
+        lambda r: f"行{int(r['_row'])} - {r['date'].strftime('%Y-%m-%d')} - {'收入' if r['type']=='income' else '支出'} - {r['category']} - ¥{r['amount']:,.2f}",
+        axis=1,
+    ).tolist()
+    del_selected = st.selectbox("选择要删除的记录", del_labels, key="del_select")
+    if st.button("删除选中记录", type="primary", key="del_btn"):
+        row_num = int(del_selected.split(" - ")[0].replace("行", ""))
+        try:
+            ws.delete_rows(row_num)
+            st.cache_data.clear()
+            st.success("已删除")
+            st.rerun()
+        except APIError as e:
+            st.error(f"删除失败：{e}")
+else:
+    st.caption("暂无记录可删除")
