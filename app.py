@@ -163,6 +163,15 @@ total_balance_all = all_regular[all_regular["type"] == "income"]["amount"].sum()
 st.sidebar.divider()
 st.sidebar.metric("🏦 小金库余额", f"¥{total_fund:,.2f}")
 st.sidebar.caption(f"本期存入 ¥{period_fund_in:,.2f} ｜ 本期支出 ¥{period_fund_out:,.2f}")
+col_s1, col_s2 = st.sidebar.columns(2)
+if col_s1.button("＋ 存入", use_container_width=True):
+    st.session_state["show_form"] = True
+    st.session_state["fund_quick"] = "deposit"
+    st.rerun()
+if col_s2.button("－ 支出", use_container_width=True):
+    st.session_state["show_form"] = True
+    st.session_state["fund_quick"] = "expense"
+    st.rerun()
 
 # ── 主页面 ─────────────────────────────────────────────────
 # 当前总余额
@@ -190,8 +199,14 @@ else:
 
 st.caption(desc)
 
+type_filter = st.radio("类型筛选", ["全部", "仅支出", "仅收入"], horizontal=True, key="type_filter", label_visibility="collapsed")
+
 if not display_df.empty:
     display_df = display_df.head(50).copy()
+    if type_filter == "仅支出":
+        display_df = display_df[display_df["type"] == "expense"]
+    elif type_filter == "仅收入":
+        display_df = display_df[display_df["type"] == "income"]
     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
     display_df["type"] = display_df["type"].map({"income": "收入", "expense": "支出"})
     display_df["amount"] = display_df["amount"].apply(lambda x: f"¥{x:,.2f}")
@@ -218,6 +233,9 @@ if btn_col.button("＋ 记一笔", use_container_width=True, type="primary"):
 if st.session_state["show_form"]:
     st.divider()
     st.subheader("✏️ 新增记录")
+    quick = st.session_state.pop("fund_quick", None)
+    if quick:
+        st.session_state["record_type"] = "income" if quick == "deposit" else "expense"
     if "record_type" not in st.session_state:
         st.session_state["record_type"] = "expense"
     record_type = st.selectbox(
@@ -226,10 +244,12 @@ if st.session_state["show_form"]:
         key="record_type",
     )
     categories = EXPENSE_CATEGORIES if record_type == "expense" else INCOME_CATEGORIES
+    preset_cat = "小金库存入" if quick == "deposit" else ("小金库支出" if quick == "expense" else None)
+    cat_index = categories.index(preset_cat) if preset_cat and preset_cat in categories else 0
     with st.form("new_record", clear_on_submit=True):
         c1, c2 = st.columns(2)
         record_date = c1.date_input("日期", value=today)
-        record_category = c2.selectbox("分类", categories)
+        record_category = c2.selectbox("分类", categories, index=cat_index)
         c3, c4 = st.columns(2)
         record_amount = c3.number_input("金额", min_value=0.01, step=0.01, format="%.2f")
         payment_methods = ["微信", "支付宝", "现金", "银行卡"]
