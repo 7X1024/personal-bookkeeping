@@ -138,10 +138,6 @@ range_display_end = range_end - datetime.timedelta(days=1)
 
 st.sidebar.info(f"**当前统计范围**\n\n{range_start} 至 {range_display_end}")
 
-st.sidebar.divider()
-st.sidebar.metric("🏦 小金库余额", f"¥{total_fund:,.2f}")
-st.sidebar.caption(f"本期存入 ¥{period_fund_in:,.2f} ｜ 本期支出 ¥{period_fund_out:,.2f}")
-
 # ── 筛选当前周期数据 ───────────────────────────────────────
 EXPENSE_CATEGORIES = ["餐饮", "交通", "学习", "娱乐", "购物", "住宿", "其他", "小金库支出"]
 INCOME_CATEGORIES = ["奖学金", "生活费", "兼职", "工资", "红包", "投资", "其他收入", "小金库存入"]
@@ -163,6 +159,10 @@ period_fund_out = period_df[(period_df["type"] == "expense") & (period_df["categ
 total_fund = df[(df["type"] == "income") & (df["category"] == "小金库存入")]["amount"].sum() - df[(df["type"] == "expense") & (df["category"] == "小金库支出")]["amount"].sum()
 all_regular = df[~df["category"].isin(FUND_CATEGORIES)] if not df.empty else df
 total_balance_all = all_regular[all_regular["type"] == "income"]["amount"].sum() - all_regular[all_regular["type"] == "expense"]["amount"].sum()
+
+st.sidebar.divider()
+st.sidebar.metric("🏦 小金库余额", f"¥{total_fund:,.2f}")
+st.sidebar.caption(f"本期存入 ¥{period_fund_in:,.2f} ｜ 本期支出 ¥{period_fund_out:,.2f}")
 
 # ── 主页面 ─────────────────────────────────────────────────
 # 当前总余额
